@@ -1,0 +1,64 @@
+name: Fetch latest PyPI and Homebrew download stats
+
+on:
+  workflow_dispatch:
+  push:
+  schedule:
+    - cron:  '41 1,7,13 * * *'
+    - cron:  '41 19 * * *'
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.9
+    - uses: actions/cache@v2
+      name: Configure pip caching
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Fetch latest PyPI stats once every 24 hours
+      continue-on-error: true
+      if: |-
+        github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule == '41 19 * * *')
+      run: |
+        packages=$(curl -s 'https://bayjarvis.com/content.json?sql=select+group_concat(substr(nameWithOwner%2C+instr(nameWithOwner%2C+%27%2F%27)+%2B+1)%2C+%27+%27)+from+datasette_repos%0D%0Awhere+nameWithOwner+!%3D+%27jamesliu%2Fbayjarvis-app%27&_shape=arrayfirst' | jq '.[0]' -r) 
+        # Fetch packages-by-system for each one
+        mkdir -p packages-by-system
+        for package in $packages
+        do
+          curl -s https://pypistats.org/api/packages/$package/system | jq > packages-by-system/$package.json
+          head -n 17 packages-by-system/$package.json
+          sleep 20
+        done
+        # And run the original script
+        eval "python fetch_stats.py stats.json --verbose --sleep 20 datasette sqlite-utils $packages"
+    - name: Fetch latest Homebrew stats
+      run: |
+        curl https://formulae.brew.sh/api/formula/datasette.json | jq . > homebrew-datasette.json
+        curl https://formulae.brew.sh/api/formula/sqlite-utils.json | jq . > homebrew-sqlite-utils.json
+    - name: Fetch latest GitHub releases stats for datasette-app
+      run: |
+        curl https://api.github.com/repos/jamesliu/bayjarvis-app/releases | jq . > datasette-app-releases.json
+    - name: Fetch Docker Hub information
+      run: |
+        curl https://hub.docker.com/v2/repositories/datasetteproject/datasette \
+          | jq > hub-docker-com-datasette.json
+    - name: Commit and push if s changed
+      run: |-
+        git config user.name "Automated"
+        git config user.email "actions@users.noreply.github.com"
+        git add -A
+        timestamp=$(date -u)
+        git commit -m "Latest data: ${timestamp}" || exit 0
+        git push
