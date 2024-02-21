@@ -42,14 +42,14 @@ jobs:
           sleep 20
         done
         # And run the original script
-        eval "python fetch_stats.py stats.json --verbose --sleep 20 datasette sqlite-utils $packages"
+        eval "python fetch_stats.py stats.json --verbose --sleep 20 $packages"
     - name: Fetch latest Homebrew stats
       run: |
         curl https://formulae.brew.sh/api/formula/datasette.json | jq . > homebrew-datasette.json
         curl https://formulae.brew.sh/api/formula/sqlite-utils.json | jq . > homebrew-sqlite-utils.json
     - name: Fetch latest GitHub releases stats for datasette-app
       run: |
-        curl https://api.github.com/repos/jamesliu/bayjarvis-app/releases | jq . > datasette-app-releases.json
+        curl https://api.github.com/repos/jamesliu/bayjarvis-app/releases | jq . > bayjarvis-app-releases.json
     - name: Fetch Docker Hub information
       run: |
         curl https://hub.docker.com/v2/repositories/datasetteproject/datasette \
