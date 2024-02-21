@@ -7,4 +7,5 @@ do
     sleep 20
 done
 # And run the original script
-eval "python fetch_stats.py stats.json --verbose --sleep 20 datasette sqlite-utils $packages"
+#eval "python fetch_stats.py stats.json --verbose --sleep 20 datasette sqlite-utils $packages"
+eval "python fetch_stats.py stats.json --verbose --sleep 20 $packages"
